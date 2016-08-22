@@ -19,4 +19,4 @@ Alternatively, you can clone the [code repository for this service](https://gith
 
 ## Accessing the service
 This service exposes a single endpoint at port 3004 by default which responds to GET requests. The service takes 1 parameter: match (Id of the match)
-For example: `http://localhost:3002?match=10`
+For example: `http://localhost:3004?match=10`
