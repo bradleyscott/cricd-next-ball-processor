@@ -18,7 +18,6 @@ app.get('/', function(req, res) {
     }
 
     var matchEvents = [];
-    var lastBall = {};
     
     eventStore.getMatchEventsAsync(match)
         .then(function(events) {
@@ -29,25 +28,13 @@ app.get('/', function(req, res) {
             }
             
             matchEvents = events;
-            lastBall = events[events.length - 1];
             return entities.getMatchDetailsAsync(match);
         })
         .then(function(matchDetails) {
             var limitedOvers = matchDetails.limitedOvers;
             if(matchDetails.limitedOvers) debug('This match is limited to %s overs', matchDetails.limitedOvers);
+            var lastBall = matchEvents[matchEvents.length - 1];
             var innings = lastBall.ball.innings;
-
-            // Work out number of wickets down
-            var inningsEvents = _(matchEvents).filter(function(e){
-                return e.ball.innings == innings;
-            });
-            var wickets = _(matchEvents).filter(function(e){
-                if(e.eventType != 'delivery' && e.eventType != 'noBall' && e.eventType != 'wide' || 
-                    e.eventType != 'bye' && e.eventType == 'legBye') return true;
-                else return false;
-            });
-            debug('%s wickets in this innings', wickets.length);
-            wickets = wickets.length;
 
             // Default next ball information
             var response = {
@@ -64,7 +51,7 @@ app.get('/', function(req, res) {
             };
 
             debug('Invoking processor for: %s', lastBall.eventType);
-            var changes = eventProcessors[lastBall.eventType](lastBall, limitedOvers, wickets);
+            var changes = eventProcessors[lastBall.eventType](lastBall, matchEvents, limitedOvers);
             response = applyNextBall(response, changes);
 
             return res.send(response);
@@ -85,9 +72,9 @@ applyNextBall = function(response, changes) {
     if(changes.batsmen) response.batsmen = changes.batsmen;
     if(changes.ball.battingTeam) response.ball.battingTeam = changes.ball.battingTeam;
     if(changes.ball.fieldingTeam) response.ball.fieldingTeam = changes.ball.fieldingTeam;
-    if(changes.ball.innings) response.ball.innings = changes.ball.innings;
-    if(changes.ball.over) response.ball.over = changes.ball.over;
-    if(changes.ball.ball) response.ball.ball = changes.ball.ball;
+    if(changes.ball.innings != null) response.ball.innings = changes.ball.innings;
+    if(changes.ball.over != null) response.ball.over = changes.ball.over;
+    if(changes.ball.ball != null) response.ball.ball = changes.ball.ball;
 
     return response;
 };
