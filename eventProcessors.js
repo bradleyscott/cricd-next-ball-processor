@@ -1,662 +1,540 @@
 var debug = require('debug')('next-ball-processor-eventProcessors');
 var _ = require('underscore');
+var helpers = require('./helpers.js');
 var exports = module.exports = {};
 
-var isEndOfOver = function(e, matchEvents) {
-    var isExtra = false;
-    if(e.type == 'noBall' || e.type == 'wide') isExtra = true;
-
-    if(getLegalBallNumber(e, matchEvents) == 6 && isExtra == false) return true;
-    else return false;
-};
-
-var isEndOfInnings = function(e, limitedOvers, wickets) {
-    var isExtra = false;
-    if(e.type == 'noBall' || e.type == 'wide') isExtra = true;
-    if(!isExtra && e.ball.ball == 6 && e.ball.over == limitedOvers - 1) return true; // Check if innings is over because of limited overs
-
-    // Check if innings is over because all batsman are dismissed
-    var isWicket = true;
-    if(e.type == 'delivery' || e.type == 'bye' || e.type == 'legbye' || isExtra) isWicket = false;
-    if(isWicket && wickets == 9) return true;
-
-    return false;
-};
-
-var getPreviousBowler = function(e, matchEvents) {
-    var previousOver = e.ball.over - 1;
-    var innings = e.ball.innings;
-
-    var previousOverBall = _(matchEvents).find(function(e){
-        return e.ball.over == previousOver && e.ball.innings == innings;
-    });
-    var bowler = previousOverBall.bowler;
-    return bowler;  
-};
-
-var getLegalBallNumber = function(e, matchEvents) {
-    var lastBall = matchEvents[matchEvents.length - 1];
-    var innings = lastBall.ball.innings;
-    var over = e.ball.over;
-
-    var legalBalls = _(matchEvents).filter(function(e){
-        var overMatch = e.ball.over == over && e.ball.innings == innings;
-        var isExtra = e.type == 'noBall' || e.type == 'wide';
-        return overMatch && !isExtra;
-    });
-
-    return legalBalls.length;
-};
-
-var getWickets = function(e, matchEvents) {
-    var inningsEvents = _(matchEvents).filter(function(evt){
-        return e.ball.innings == evt.ball.innings;
-    });
-
-    var wickets = _(matchEvents).filter(function(e){
-        if(e.eventType != 'delivery' && e.eventType != 'noBall' && e.eventType != 'wide' || 
-            e.eventType != 'bye' && e.eventType == 'legBye') return true;
-        else return false;
-    });
-
-    return wickets.length;
-};
-
-exports.delivery = function(e, matchEvents, limitedOvers) {
-    debug('Processing delivery: %s', JSON.stringify(e));
+exports.delivery = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing delivery: %s', JSON.stringify(lastBall));
     
-    var changes = {
-        ball: e.ball
-    };
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var oddRuns = e.runs % 2 != 0;
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
-    var nextBall = getLegalBallNumber(e, matchEvents) + 1;
+    var oddRuns = lastBall.runs % 2 != 0;
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents) && !oddRuns) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
-            nonStriker: e.batsmen.striker
+    else if(isEndOfOver(lastBall, allEvents) && !oddRuns) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
+            nonStriker: lastBall.batsmen.striker
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(e, matchEvents) && oddRuns) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.bowler = getPreviousBowler(e, matchEvents);
+    else if(isEndOfOver(lastBall, allEvents) && oddRuns) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else if(oddRuns) {
-        changes.ball.ball = nextBall;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
-            nonStriker: e.batsmen.striker
+        response.ball.ball++;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
+            nonStriker: lastBall.batsmen.striker
         };
     }
-    else changes.ball.ball = nextBall;
-    return changes;
+    else response.ball.ball++;
+    return response;
 };
 
-exports.noBall = function(e, matchEvents, limitedOvers) {
-    debug('Processing noBall: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.noBall = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing noBall: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var oddRuns = e.runs % 2 != 0;
+    var oddRuns = lastBall.runs % 2 != 0;
     if(oddRuns) {
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
-            nonStriker: e.batsmen.striker
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
+            nonStriker: lastBall.batsmen.striker
         };
     }
-    return changes;
+    return response;
 };
 
-exports.wide = function(e, matchEvents, limitedOvers) {
-    debug('Processing wide: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.wide = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing wide: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var oddRuns = e.runs % 2 != 0;
+    var oddRuns = lastBall.runs % 2 != 0;
     if(oddRuns) {
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
-            nonStriker: e.batsmen.striker
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
+            nonStriker: lastBall.batsmen.striker
         };
     }
-    return changes;
+    return response;
 };
 
-exports.bye = function(e, matchEvents, limitedOvers) {
-    debug('Processing bye: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.bye = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing bye: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var oddRuns = e.runs % 2 != 0;
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var oddRuns = lastBall.runs % 2 != 0;
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents) && !oddRuns) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
-            nonStriker: e.batsmen.striker
+    else if(isEndOfOver(lastBall, allEvents) && !oddRuns) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
+            nonStriker: lastBall.batsmen.striker
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(e, matchEvents) && oddRuns) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.bowler = getPreviousBowler(e, matchEvents);
+    else if(isEndOfOver(lastBall, allEvents) && oddRuns) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else if(oddRuns) {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
-            nonStriker: e.batsmen.striker
+        response.ball.ball = helpers.getLegalBallNumber(lastBall, allEvents);
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
+            nonStriker: lastBall.batsmen.striker
         };
     }
-    else changes.ball.ball = getLegalBallNumber(e, matchEvents);
-    return changes;
+    else response.ball.ball++;
+    return response;
 };
 
-exports.legBye = function(e, matchEvents, limitedOvers) {
-    debug('Processing legBye: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.legBye = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing legBye: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var oddRuns = e.runs % 2 != 0;
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var oddRuns = lastBall.runs % 2 != 0;
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents) && !oddRuns) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
-            nonStriker: e.batsmen.striker
+    else if(isEndOfOver(lastBall, allEvents) && !oddRuns) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
+            nonStriker: lastBall.batsmen.striker
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(e, matchEvents) && oddRuns) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.bowler = getPreviousBowler(e, matchEvents);
+    else if(isEndOfOver(lastBall, allEvents) && oddRuns) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else if(oddRuns) {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
-            nonStriker: e.batsmen.striker
+        response.ball.ball++;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
+            nonStriker: lastBall.batsmen.striker
         };
     }
-    else changes.ball.ball = getLegalBallNumber(e, matchEvents);
-    return changes;
+    else response.ball.ball++;
+    return response;
 };
 
-exports.bowled = function(e, matchEvents, limitedOvers) {
-    debug('Processing bowled: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.bowled = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing bowled: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents)) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
+    else if(isEndOfOver(lastBall, allEvents)) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
             nonStriker: {}
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
+        response.ball.ball++;
+        response.batsmen.striker = {};
     }
-    return changes;
+    return response;
 };
 
-exports.timedOut = function(e, matchEvents, limitedOvers) {
-    debug('Processing timedOut: %s', JSON.stringify(e));
+exports.timedOut = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing timedOut: %s', JSON.stringify(lastBall));
 
-    var changes = {
-        ball: e.ball,
-        batsmen: {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        }
-    };
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
+    response.batsmen.striker = {};
 
-    return changes;
+    return response;
 };
 
-exports.caught = function(e, matchEvents, limitedOvers) {
-    debug('Processing caught: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.caught = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing caught: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents) && !e.didCross) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+    else if(isEndOfOver(lastBall, allEvents) && !lastBall.didCross) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
-            nonStriker: e.batsmen.striker
+            nonStriker: lastBall.batsmen.striker
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(e, matchEvents) && e.didCross) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+    else if(isEndOfOver(lastBall, allEvents) && lastBall.didCross) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
-            nonStriker: e.batsmen.nonStriker
+            nonStriker: lastBall.batsmen.nonStriker
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(e.didCross) {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
+    else if(lastBall.didCross) {
+        response.ball.ball++;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
             nonStriker: {}
         };
     }
     else {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
+        response.ball.ball++;
+        response.batsmen.striker = {};
     }
-    return changes;
+
+    return response;
 };
 
-exports.handledBall = function(e, matchEvents, limitedOvers) {
-    debug('Processing handledBall: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.handledBall = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing handledBall: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents)) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
+    else if(isEndOfOver(lastBall, allEvents)) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
             nonStriker: {}
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
+        response.ball.ball++;
+        response.batsmen.striker = {};
     }
-    return changes;
+    return response;
 };
 
-exports.doubleHit = function(e, matchEvents, limitedOvers) {
-    debug('Processing doubleHit: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.doubleHit = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing doubleHit: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents)) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
+    else if(isEndOfOver(lastBall, allEvents)) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
             nonStriker: {}
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
+        response.ball.ball++;
+        response.batsmen.striker = {};
     }
-    return changes;
+    return response;
 };
 
-exports.hitWicket = function(e, matchEvents, limitedOvers) {
-    debug('Processing hitWicket: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.hitWicket = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing hitWicket: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents)) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
+    else if(isEndOfOver(lastBall, allEvents)) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
             nonStriker: {}
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
+        response.ball.ball++;
+        response.batsmen.striker = {};
     } 
-    return changes;
+    return response;
 };
 
-exports.lbw = function(e, matchEvents, limitedOvers) {
-    debug('Processing lbw: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.lbw = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing lbw: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents)) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
+    else if(isEndOfOver(lastBall, allEvents)) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
             nonStriker: {}
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
+        response.ball.ball++;
+        response.batsmen.striker = {};
     } 
-    return changes;
+    return response;
 };
 
-exports.obstruction = function(e, matchEvents, limitedOvers) {
-    debug('Processing obstruction: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.obstruction = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing obstruction: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var wickets = getWickets(e, matchEvents);
-    var didSwap = e.runs % 2 == 0; // Players swap on unsuccessful run
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var didSwap = lastBall.runs % 2 == 0; // Players swap on unsuccessful run
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents) && !didSwap) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+    else if(isEndOfOver(lastBall, allEvents) && !didSwap) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
-            nonStriker: e.batsmen.striker
+            nonStriker: lastBall.batsmen.striker
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(e, matchEvents) && didSwap) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+    else if(isEndOfOver(lastBall, allEvents) && didSwap) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
-            nonStriker: e.batsmen.nonStriker
+            nonStriker: lastBall.batsmen.nonStriker
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else if(didSwap) {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
+        response.ball.ball++;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
             nonStriker: {}
         };
     }
     else {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
+        response.ball.ball++;
+        response.batsmen.striker = {};
     }
-    return changes;
+    return response;
 };
 
-exports.runOut = function(e, matchEvents, limitedOvers) {
-    debug('Processing runOut: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.runOut = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing runOut: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var wickets = getWickets(e, matchEvents);
-    var didSwap = e.runs % 2 == 0; // Players swap on unsuccessful run
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var didSwap = lastBall.runs % 2 == 0; // Players swap on unsuccessful run
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents) && !didSwap) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+    else if(isEndOfOver(lastBall, allEvents) && !didSwap) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
-            nonStriker: e.batsmen.striker
+            nonStriker: lastBall.batsmen.striker
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(e, matchEvents) && didSwap) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+    else if(isEndOfOver(lastBall, allEvents) && didSwap) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen.striker = {};
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else if(didSwap) {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
+        response.ball.ball++;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
             nonStriker: {}
         };
     }
     else {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
+        response.ball.ball++;
+        response.batsmen.striker = {};
     }
-    return changes;
+    return response;
 };
 
-exports.stumped = function(e, matchEvents, limitedOvers) {
-    debug('Processing stumped: %s', JSON.stringify(e));
-    var changes = {
-        ball: e.ball
-    };
+exports.stumped = function(lastBall, allEvents, limitedOvers) {
+    debug('Processing stumped: %s', JSON.stringify(lastBall));
+    var response = helpers.getDefaultResponse(lastBall, allEvents);
 
-    var wickets = getWickets(e, matchEvents);
-    var endOfInnings = isEndOfInnings(e, limitedOvers, wickets);
+    var wickets = helpers.getWickets(lastBall, allEvents);
+    var endOfInnings = helpers.isEndOfInnings(lastBall, limitedOvers, wickets);
 
     if(endOfInnings) {
-        changes.ball.battingTeam = e.ball.fieldingTeam;
-        changes.ball.fieldingTeam = e.ball.battingTeam;
-        changes.ball.innings++;
-        changes.ball.over = 0;
-        changes.ball.ball = 1;
-        changes.batsmen = {
+        response.ball.battingTeam = lastBall.ball.fieldingTeam;
+        response.ball.fieldingTeam = lastBall.ball.battingTeam;
+        response.ball.innings++;
+        response.ball.over = 0;
+        response.ball.ball = 1;
+        response.batsmen = {
             striker: {},
             nonStriker: {}
         };
-        changes.bowler = {};
+        response.bowler = {};
     }
-    else if(isEndOfOver(e, matchEvents)) {
-        changes.ball.over++;
-        changes.ball.ball = 1;
-        changes.batsmen = {
-            striker: e.batsmen.nonStriker,
+    else if(isEndOfOver(lastBall, allEvents)) {
+        response.ball.over++;
+        response.ball.ball = 1;
+        response.batsmen = {
+            striker: lastBall.batsmen.nonStriker,
             nonStriker: {}
         };
-        changes.bowler = getPreviousBowler(e, matchEvents);
+        response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
     else {
-        changes.ball.ball = getLegalBallNumber(e, matchEvents);
-        changes.batsmen = {
-            striker: {},
-            nonStriker: e.batsmen.nonStriker
-        };
+        response.ball.ball++;
+        response.batsmen.striker = {};
     }
-    return changes;
+    return response;
 };
