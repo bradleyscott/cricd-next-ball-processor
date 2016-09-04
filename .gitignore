@@ -38,3 +38,4 @@ jspm_packages
 
 # cricd specific
 .vscode/
+jsconfig.json
