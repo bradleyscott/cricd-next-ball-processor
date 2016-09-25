@@ -25,5 +25,9 @@
     "ges-client": "^0.10.0",
     "node-rest-client": "^2.0.1",
     "underscore": "^1.8.3"
+  },
+  "devDependencies": {
+    "mocha": "^3.0.2",
+    "should": "^11.1.0"
   }
 }

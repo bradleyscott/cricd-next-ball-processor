@@ -24,7 +24,7 @@ exports.delivery = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents) && !oddRuns) {
+    else if(helpers.helpers.isEndOfOver(lastBall, allEvents) && !oddRuns) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -33,7 +33,7 @@ exports.delivery = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(lastBall, allEvents) && oddRuns) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && oddRuns) {
         response.ball.over++;
         response.ball.ball = 1;
         response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
@@ -97,7 +97,7 @@ exports.bye = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents) && !oddRuns) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && !oddRuns) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -106,7 +106,7 @@ exports.bye = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(lastBall, allEvents) && oddRuns) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && oddRuns) {
         response.ball.over++;
         response.ball.ball = 1;
         response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
@@ -142,7 +142,7 @@ exports.legBye = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents) && !oddRuns) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && !oddRuns) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -151,7 +151,7 @@ exports.legBye = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(lastBall, allEvents) && oddRuns) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && oddRuns) {
         response.ball.over++;
         response.ball.ball = 1;
         response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
@@ -186,7 +186,7 @@ exports.bowled = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents)) {
+    else if(helpers.isEndOfOver(lastBall, allEvents)) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -230,7 +230,7 @@ exports.caught = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents) && !lastBall.didCross) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && !lastBall.didCross) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -239,7 +239,7 @@ exports.caught = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(lastBall, allEvents) && lastBall.didCross) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && lastBall.didCross) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -282,7 +282,7 @@ exports.handledBall = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents)) {
+    else if(helpers.isEndOfOver(lastBall, allEvents)) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -317,7 +317,7 @@ exports.doubleHit = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents)) {
+    else if(helpers.isEndOfOver(lastBall, allEvents)) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -352,7 +352,7 @@ exports.hitWicket = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents)) {
+    else if(helpers.isEndOfOver(lastBall, allEvents)) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -387,7 +387,7 @@ exports.lbw = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents)) {
+    else if(helpers.isEndOfOver(lastBall, allEvents)) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -423,7 +423,7 @@ exports.obstruction = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents) && !didSwap) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && !didSwap) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -432,7 +432,7 @@ exports.obstruction = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(lastBall, allEvents) && didSwap) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && didSwap) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -475,7 +475,7 @@ exports.runOut = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents) && !didSwap) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && !didSwap) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
@@ -484,7 +484,7 @@ exports.runOut = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = helpers.getPreviousBowler(lastBall, allEvents);
     }
-    else if(isEndOfOver(lastBall, allEvents) && didSwap) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && didSwap) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen.striker = {};
@@ -523,7 +523,7 @@ exports.stumped = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(isEndOfOver(lastBall, allEvents)) {
+    else if(helpers.isEndOfOver(lastBall, allEvents)) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
