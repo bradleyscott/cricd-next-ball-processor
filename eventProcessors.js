@@ -24,7 +24,7 @@ exports.delivery = function(lastBall, allEvents, limitedOvers) {
         };
         response.bowler = {};
     }
-    else if(helpers.helpers.isEndOfOver(lastBall, allEvents) && !oddRuns) {
+    else if(helpers.isEndOfOver(lastBall, allEvents) && !oddRuns) {
         response.ball.over++;
         response.ball.ball = 1;
         response.batsmen = {
