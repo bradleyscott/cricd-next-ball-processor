@@ -2,19 +2,18 @@ var express = require('express');
 var app = express();
 var debug = require('debug')('next-ball-processor');
 var Promise = require('bluebird');
+var cors = require('cors');
 var eventStore = Promise.promisifyAll(require('./eventstore.js'));
 var entities = Promise.promisifyAll(require('./entities.js'));
 var eventProcessors = require('./eventProcessors.js');
 var _ = require('underscore');
 
-app.use(function(req, res, next) {
-    var allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS : 'http://localhost:8080';
-    res.header("Access-Control-Allow-Origin", allowedOrigins);
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    next();
-});
+var allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS : 'http://localhost:8080';
+var corsOptions = {
+    origin: allowedOrigins
+};
 
-app.get('/', function(req, res) {
+app.get('/', cors(corsOptions), function(req, res) {
     debug('Request received with query params %s', JSON.stringify(req.query));
 
     var match = req.query.match;
