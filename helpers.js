@@ -4,7 +4,7 @@ var exports = module.exports = {};
 
 exports.isEndOfOver = function(lastBall, allEvents) {
     var isExtra = false;
-    if(lastBall.type == 'noBall' || lastBall.type == 'wide') isExtra = true;
+    if(lastBall.eventType == 'noBall' || lastBall.eventType == 'wide') isExtra = true;
 
     if(getLegalBallNumber(lastBall, allEvents) == 6 && isExtra == false) return true;
     else return false;
@@ -12,12 +12,12 @@ exports.isEndOfOver = function(lastBall, allEvents) {
 
 exports.isEndOfInnings = function(lastBall, limitedOvers, wickets) {
     var isExtra = false;
-    if(lastBall.type == 'noBall' || lastBall.type == 'wide') isExtra = true;
+    if(lastBall.eventType == 'noBall' || lastBall.eventType == 'wide') isExtra = true;
     if(limitedOvers && !isExtra && lastBall.ball.ball == 6 && lastBall.ball.over == limitedOvers - 1) return true; // Check if innings is over because of limited overs
 
     // Check if innings is over because all batsman are dismissed
     var isWicket = true;
-    if(lastBall.type == 'delivery' || lastBall.type == 'bye' || lastBall.type == 'legbye' || isExtra) isWicket = false;
+    if(lastBall.eventType == 'delivery' || lastBall.eventType == 'bye' || lastBall.eventType == 'legbye' || isExtra) isWicket = false;
     if(isWicket && wickets == 9) return true;
 
     return false;
@@ -28,20 +28,19 @@ exports.getPreviousBowler = function(lastBall, allEvents) {
     var innings = lastBall.ball.innings;
 
     var previousOverBall = _(allEvents).find(function(e){
-        return lastBall.ball.over == previousOver && lastBall.ball.innings == innings;
+        return e.ball.over == previousOver && e.ball.innings == innings;
     });
     var bowler = previousOverBall.bowler;
     return bowler;  
 };
 
 exports.getLegalBallNumber = function(lastBall, allEvents) {
-    var lastBall = allEvents[allEvents.length - 1];
     var innings = lastBall.ball.innings;
     var over = lastBall.ball.over;
 
     var legalBalls = _(allEvents).filter(function(e){
-        var overMatch = lastBall.ball.over == over && lastBall.ball.innings == innings;
-        var isExtra = lastBall.type == 'noBall' || lastBall.type == 'wide';
+        var overMatch = e.ball.over == over && e.ball.innings == innings;
+        var isExtra = e.eventType == 'noBall' || e.eventType == 'wide';
         return overMatch && !isExtra;
     });
 
