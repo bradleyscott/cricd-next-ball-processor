@@ -6,7 +6,7 @@
   "scripts": {
     "debug": "DEBUG=* EVENTSTORE_HOST=localhost ENTITIES_HOST=localhost node --inspect index.js",
     "debug-windows": "SET DEBUG=*&& SET EVENTSTORE_HOST=localhost&& SET ENTITIES_host=localhost&& node --inspect index.js",
-    "start": "DEBUG=* node index.js",
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
