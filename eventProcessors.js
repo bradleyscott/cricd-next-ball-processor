@@ -46,6 +46,9 @@ exports.delivery = function(lastBall, allEvents, limitedOvers) {
         };
     }
     else response.ball.ball++;
+
+    response.eventType = 'delivery';
+    response.runs = 0;
     return response;
 };
 
