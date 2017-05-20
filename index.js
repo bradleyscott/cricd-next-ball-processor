@@ -44,6 +44,12 @@ app.get('/', cors(corsOptions), function(req, res) {
 
             debug('Invoking processor for: %s', lastBall.eventType);
             var response = eventProcessors[lastBall.eventType](lastBall, allEvents, limitedOvers);
+            response.match = matchDetails.id;
+            
+            // Default to a dot ball
+            response.eventType = 'delivery'; 
+            response.runs = 0;
+            
             return res.send(response);
         })
         .catch(function(error) {
